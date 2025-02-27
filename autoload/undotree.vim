@@ -1162,7 +1162,7 @@ function! s:diffpanel.ParseDiff(diffresult, targetBufnr) abort
     " matchadd associates with windows.
     if exists("w:undotree_diffmatches")
         for i in w:undotree_diffmatches
-            call matchdelete(i)
+            silent! call matchdelete(i)
         endfor
     endif
 
@@ -1328,7 +1328,7 @@ function! s:diffpanel.CleanUpHighlight() abort
         call s:exec_silent("norm! ".i."\<c-w>\<c-w>")
         if exists("w:undotree_diffmatches")
             for j in w:undotree_diffmatches
-                call matchdelete(j)
+                silent! call matchdelete(j)
             endfor
             let w:undotree_diffmatches = []
         endif
