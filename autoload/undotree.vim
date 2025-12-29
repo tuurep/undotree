@@ -103,10 +103,10 @@ let s:keymap += [['Enter','<cr>','Move to the current state']]
 " it is not possible to place a sign on the exact line - because it doesn't exist.
 " Instead, a 'special' delete sign is placed on the (existing) last line of the
 " buffer)
-exe 'sign define UndotreeAdd text=++ texthl='.undotree_HighlightSyntaxAdd
-exe 'sign define UndotreeChg text=~~ texthl='.undotree_HighlightSyntaxChange
-exe 'sign define UndotreeDel text=-- texthl='.undotree_HighlightSyntaxDel
-exe 'sign define UndotreeDelEnd text=-v texthl='.undotree_HighlightSyntaxDel
+exe 'sign define UndotreeAdd text='.undotree_SignAdded.' texthl='.undotree_HighlightSyntaxAdd
+exe 'sign define UndotreeChg text='.undotree_SignChanged.' texthl='.undotree_HighlightSyntaxChange
+exe 'sign define UndotreeDel text='.undotree_SignDeleted.' texthl='.undotree_HighlightSyntaxDel
+exe 'sign define UndotreeDelEnd text='.undotree_SignDeletedEnd.' texthl='.undotree_HighlightSyntaxDel
 
 " Id to use for all signs. This is an arbitrary number that is hoped to be unique
 " within the instance of vim. There is no way of guaranteeing it IS unique, which
@@ -518,7 +518,7 @@ function! s:undotree.SetTargetFocus() abort
     for winnr in range(1, winnr('$')) "winnr starts from 1
         if getwinvar(winnr,'undotree_id') == self.targetid
             if winnr() != winnr
-                call s:exec("norm! ".winnr."\<c-w>\<c-w>")
+                call s:exec_silent("norm! ".winnr."\<c-w>\<c-w>")
                 return 1
             endif
         endif
@@ -607,9 +607,13 @@ function! s:undotree.Show() abort
         setlocal nocursorline
     endif
     setlocal nomodifiable
-    setlocal statusline=%!t:undotree.GetStatusLine()
+    if g:undotree_StatusLine
+        setlocal statusline=%!t:undotree.GetStatusLine()
+    endif
     setfiletype undotree
 
+    " Make :q call ActionClose
+    cabbrev <silent><buffer> q :call t:undotree.ActionClose()<CR>
     call self.BindKey()
     call self.BindAu()
 
@@ -637,12 +641,17 @@ function! s:undotree.Update() abort
     if exists('b:isUndotreeBuffer')
         return
     endif
+    " let the user disable undotree for chosen buftypes
+    if index(g:undotree_DisabledBuftypes, &buftype) != -1
+        call s:log("undotree.Update() disabled buftype")
+        return
+    endif
+    " let the user disable undotree for chosen filetypes
+    if index(g:undotree_DisabledFiletypes, &filetype) != -1
+        call s:log("undotree.Update() disabled filetype")
+        return
+    endif
     if (&bt != '' && &bt != 'acwrite') || (&modifiable == 0) || (mode() != 'n')
-        if &bt == 'quickfix' || &bt == 'nofile'
-            "Do nothing for quickfix and q:
-            call s:log("undotree.Update() ignore quickfix")
-            return
-        endif
         if self.targetBufnr == bufnr('%') && self.targetid == w:undotree_id
             call s:log("undotree.Update() invalid buffer NOupdate")
             return
@@ -1361,7 +1370,9 @@ function! s:diffpanel.Show() abort
     setlocal norelativenumber
     setlocal nocursorline
     setlocal nomodifiable
-    setlocal statusline=%!t:diffpanel.GetStatusLine()
+    if g:undotree_StatusLine
+        setlocal statusline=%!t:diffpanel.GetStatusLine()
+    endif
 
     let &eventignore = ei_bak
 
